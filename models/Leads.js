@@ -15,7 +15,7 @@ const leadSchema = new mongoose.Schema(
         gender: {
             type: String,
             required: true,
-            enum: ["M", "F"],
+            enum: ["M", "F", "O"],
         },
         dob: {
             type: Date,
@@ -102,82 +102,87 @@ const leadSchema = new mongoose.Schema(
             ref: "Employee",
         },
 
-        document: {
-            singleDocuments: [
-                {
-                    name: {
-                        type: String,
-                        required: true,
-                    },
-                    type: {
-                        type: String,
-                        enum: [
-                            "aadhaarFront",
-                            "aadhaarBack",
-                            "eAadhaar",
-                            "panCard",
-                            "cibilReport",
-                            "sanctionLetter",
-                            // Add more document types as needed
-                        ],
-                    },
-                    url: {
-                        type: String,
-                        required: true,
-                    },
-                    remarks: {
-                        type: String,
-                    },
-                },
-            ],
-            multipleDocuments: {
-                bankStatement: [
-                    {
-                        name: {
-                            type: String,
-                            required: true,
-                        },
-                        url: {
-                            type: String,
-                            required: true,
-                        },
-                        remarks: {
-                            type: String,
-                        },
-                    },
-                ],
-                salarySlip: [
-                    {
-                        name: {
-                            type: String,
-                            required: true,
-                        },
-                        url: {
-                            type: String,
-                            required: true,
-                        },
-                        remarks: {
-                            type: String,
-                        },
-                    },
-                ],
-                others: [
-                    {
-                        name: {
-                            type: String,
-                            required: true,
-                        },
-                        url: {
-                            type: String,
-                            required: true,
-                        },
-                        remarks: {
-                            type: String,
-                        },
-                    },
-                ],
-            },
+        documents: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Document",
         },
+
+        // document: {
+        //     singleDocuments: [
+        //         {
+        //             name: {
+        //                 type: String,
+        //                 required: true,
+        //             },
+        //             type: {
+        //                 type: String,
+        //                 enum: [
+        //                     "aadhaarFront",
+        //                     "aadhaarBack",
+        //                     "eAadhaar",
+        //                     "panCard",
+        //                     "cibilReport",
+        //                     "sanctionLetter",
+        //                     // Add more document types as needed
+        //                 ],
+        //             },
+        //             url: {
+        //                 type: String,
+        //                 required: true,
+        //             },
+        //             remarks: {
+        //                 type: String,
+        //             },
+        //         },
+        //     ],
+        //     multipleDocuments: {
+        //         bankStatement: [
+        //             {
+        //                 name: {
+        //                     type: String,
+        //                     required: true,
+        //                 },
+        //                 url: {
+        //                     type: String,
+        //                     required: true,
+        //                 },
+        //                 remarks: {
+        //                     type: String,
+        //                 },
+        //             },
+        //         ],
+        //         salarySlip: [
+        //             {
+        //                 name: {
+        //                     type: String,
+        //                     required: true,
+        //                 },
+        //                 url: {
+        //                     type: String,
+        //                     required: true,
+        //                 },
+        //                 remarks: {
+        //                     type: String,
+        //                 },
+        //             },
+        //         ],
+        //         others: [
+        //             {
+        //                 name: {
+        //                     type: String,
+        //                     required: true,
+        //                 },
+        //                 url: {
+        //                     type: String,
+        //                     required: true,
+        //                 },
+        //                 remarks: {
+        //                     type: String,
+        //                 },
+        //             },
+        //         ],
+        //     },
+        // },
         isRecommended: {
             type: Boolean,
             default: false,

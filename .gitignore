@@ -59,7 +59,6 @@ cypress/videos/
 # Docker
 .dockerignore
 docker-compose.yml
-Dockerfile
 
 # Firebase
 .firebase/

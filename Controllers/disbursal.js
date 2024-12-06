@@ -1,7 +1,8 @@
+import { populate } from "dotenv";
 import asyncHandler from "../middleware/asyncHandler.js";
 import Admin from "../models/Admin.js";
-import Application from "../models/Applications.js";
 import CamDetails from "../models/CAM.js";
+import Closed from "../models/Closed.js";
 import Disbursal from "../models/Disbursal.js";
 import { postLogs } from "./logs.js";
 
@@ -13,8 +14,8 @@ export const getNewDisbursal = asyncHandler(async (req, res) => {
         req.activeRole === "disbursalManager" ||
         req.activeRole === "disbursalHead"
     ) {
-        const page = parseInt(req.query.page) || 1; // current page
-        const limit = parseInt(req.query.limit) || 10; // items per page
+        const page = parseInt(req.query.page); // current page
+        const limit = parseInt(req.query.limit); // items per page
         const skip = (page - 1) * limit;
 
         const query = {
@@ -24,6 +25,7 @@ export const getNewDisbursal = asyncHandler(async (req, res) => {
         };
 
         const disbursals = await Disbursal.find(query)
+            .sort({ updatedAt: -1 })
             .skip(skip)
             .limit(limit)
             .populate({
@@ -35,19 +37,6 @@ export const getNewDisbursal = asyncHandler(async (req, res) => {
                     },
                 },
             });
-
-        disbursals.map(async (disburse) => {
-            // Convert disbursal to a plain object to make it mutable
-            const disbursalObj = disburse.toObject();
-            if (disburse.application) {
-                const application = await Application.findById(
-                    disburse.application.toString()
-                );
-                disbursalObj.application = application
-                    ? { ...application.toObject() }
-                    : null;
-            }
-        });
 
         const totalDisbursals = await Disbursal.countDocuments(query);
 
@@ -66,18 +55,22 @@ export const getNewDisbursal = asyncHandler(async (req, res) => {
 export const getDisbursal = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const disbursal = await Disbursal.findOne({ _id: id })
-        .populate([{
-            path: "sanction", // Populating the 'sanction' field in Disbursal
-            path: "recommendedBy", // Populating the 'sanction' field in Disbursal
-            populate: {
-                path: "application", // Inside 'sanction', populate the 'application' field
+        .populate([
+            {
+                path: "sanction", // Populating the 'sanction' field in Disbursal
                 populate: [
-                    { path: "lead" },
-                    { path: "creditManagerId" },
-                    { path: "recommendedBy" },
+                    { path: "recommendedBy", select: "fName mName lName" }, // Populate 'approvedBy' inside 'sanction'
+                    { path: "approvedBy", select: "fName mName lName" },
+                    {
+                        path: "application", // Populate 'application' inside 'sanction'
+                        populate: [
+                            { path: "lead", populate: { path: "documents" } }, // Populate 'lead' inside 'application'
+                            { path: "creditManagerId" }, // Populate 'creditManagerId' inside 'application'
+                        ],
+                    },
                 ],
             },
-        }])
+        ])
         .populate("disbursedBy");
 
     if (!disbursal) {
@@ -118,12 +111,16 @@ export const allocateDisbursal = asyncHandler(async (req, res) => {
         { new: true }
     ).populate({
         path: "sanction", // Populating the 'sanction' field in Disbursal
-        populate: {
-            path: "application", // Inside 'sanction', populate the 'application' field
-            populate: {
-                path: "lead", // Inside 'application', populate the 'lead' field
+        populate: [
+            { path: "approvedBy" },
+            {
+                path: "application",
+                populate: [
+                    { path: "lead", populate: { path: "documents" } }, // Nested populate for lead and documents
+                    { path: "recommendedBy" },
+                ],
             },
-        },
+        ],
     });
 
     if (!disbursal) {
@@ -170,20 +167,25 @@ export const allocatedDisbursal = asyncHandler(async (req, res) => {
         res.status(401);
         throw new Error("Not authorized!!!");
     }
-    const page = parseInt(req.query.page) || 1; // current page
-    const limit = parseInt(req.query.limit) || 10; // items per page
+    const page = parseInt(req.query.page); // current page
+    const limit = parseInt(req.query.limit); // items per page
     const skip = (page - 1) * limit;
     const disbursals = await Disbursal.find(query)
         .skip(skip)
         .limit(limit)
         .populate({
             path: "sanction", // Populating the 'sanction' field in Disbursal
-            populate: {
-                path: "application", // Inside 'sanction', populate the 'application' field
-                populate: {
-                    path: "lead", // Inside 'application', populate the 'lead' field
+            populate: [
+                { path: "approvedBy" },
+                {
+                    path: "application",
+                    populate: [
+                        { path: "lead", populate: { path: "documents" } }, // Nested populate for lead and documents
+                        { path: "creditManagerId" }, // Populate creditManagerId
+                        { path: "recommendedBy" },
+                    ],
                 },
-            },
+            ],
         })
         .populate({
             path: "disbursalManagerId",
@@ -213,12 +215,17 @@ export const recommendDisbursal = asyncHandler(async (req, res) => {
         const disbursal = await Disbursal.findById(id)
             .populate({
                 path: "sanction", // Populating the 'sanction' field in Disbursal
-                populate: {
-                    path: "application", // Inside 'sanction', populate the 'application' field
-                    populate: {
-                        path: "lead", // Inside 'application', populate the 'lead' field
+                populate: [
+                    { path: "approvedBy" },
+                    {
+                        path: "application",
+                        populate: [
+                            { path: "lead", populate: { path: "documents" } }, // Nested populate for lead and documents
+                            { path: "creditManagerId" }, // Populate creditManagerId
+                            { path: "recommendedBy" },
+                        ],
                     },
-                },
+                ],
             })
             .populate({
                 path: "disbursalManagerId",
@@ -253,8 +260,8 @@ export const disbursalPending = asyncHandler(async (req, res) => {
         req.activeRole === "disbursalHead" ||
         req.activeRole === "admin"
     ) {
-        const page = parseInt(req.query.page) || 1; // current page
-        const limit = parseInt(req.query.limit) || 10; // items per page
+        const page = parseInt(req.query.page); // current page
+        const limit = parseInt(req.query.limit); // items per page
         const skip = (page - 1) * limit;
 
         const query = {
@@ -268,12 +275,17 @@ export const disbursalPending = asyncHandler(async (req, res) => {
             .limit(limit)
             .populate({
                 path: "sanction", // Populating the 'sanction' field in Disbursal
-                populate: {
-                    path: "application", // Inside 'sanction', populate the 'application' field
-                    populate: {
-                        path: "lead", // Inside 'application', populate the 'lead' field
+                populate: [
+                    { path: "approvedBy" },
+                    {
+                        path: "application",
+                        populate: [
+                            { path: "lead", populate: { path: "documents" } }, // Nested populate for lead and documents
+                            { path: "creditManagerId" }, // Populate creditManagerId
+                            { path: "recommendedBy" },
+                        ],
                     },
-                },
+                ],
             })
             .populate("disbursalManagerId");
 
@@ -307,12 +319,12 @@ export const approveDisbursal = asyncHandler(async (req, res) => {
             remarks,
         } = req.body;
 
-        const disbursalData = await Disbursal.findById(id).populate(
-            "application",
-            "lead"
-        );
+        const disbursalData = await Disbursal.findById(id).populate({
+            path: "sanction",
+            populate: { path: "application" },
+        });
         const cam = await CamDetails.findOne({
-            leadId: disbursalData?.application?.lead,
+            leadId: disbursalData?.sanction?.application?.lead.toString(),
         });
         // if()
         let currentDisbursalDate = new Date(disbursalDate);
@@ -332,7 +344,6 @@ export const approveDisbursal = asyncHandler(async (req, res) => {
                     Number(tenure) *
                     Number(cam.details.roi)) /
                     100;
-            console.log("cam update", repaymentAmount);
             const update = await CamDetails.findByIdAndUpdate(
                 cam._id,
                 {
@@ -357,19 +368,38 @@ export const approveDisbursal = asyncHandler(async (req, res) => {
             },
             { new: true }
         ).populate({
-            path: "application",
-            populate: {
-                path: "lead",
-            },
+            path: "sanction",
+            populate: [
+                { path: "approvedBy" },
+                {
+                    path: "application",
+                    populate: [
+                        { path: "lead", populate: { path: "documents" } }, // Nested populate for lead and documents
+                        { path: "recommendedBy" },
+                    ],
+                },
+            ],
         });
 
+        await Closed.updateOne(
+            { "data.disbursal": id },
+            {
+                $set: {
+                    "data.$[elem].isDisbursed": true,
+                },
+            },
+            {
+                arrayFilters: [{ "elem.disbursal": id }],
+            }
+        );
+
         const logs = await postLogs(
-            disbursal.application.lead._id,
+            disbursal.sanction.application.lead._id,
             "DISBURSAL APPLICATION APPROVED. SENDING TO DISBURSAL HEAD",
-            `${disbursal.application.lead.fName}${
-                disbursal.application.lead.mName &&
-                ` ${disbursal.application.lead.mName}`
-            } ${disbursal.application.lead.lName}`,
+            `${disbursal.sanction.application.lead.fName}${
+                disbursal.sanction.application.lead.mName &&
+                ` ${disbursal.sanction.application.lead.mName}`
+            } ${disbursal.sanction.application.lead.lName}`,
             `Application approved by ${req.employee.fName} ${req.employee.lName}`,
             `${remarks}`
         );
@@ -383,8 +413,8 @@ export const approveDisbursal = asyncHandler(async (req, res) => {
 // @access Private
 export const disbursed = asyncHandler(async (req, res) => {
     if (req.activeRole === "disbursalHead" || req.activeRole === "admin") {
-        const page = parseInt(req.query.page) || 1; // current page
-        const limit = parseInt(req.query.limit) || 10; // items per page
+        const page = parseInt(req.query.page); // current page
+        const limit = parseInt(req.query.limit); // items per page
         const skip = (page - 1) * limit;
 
         const query = {
@@ -396,10 +426,17 @@ export const disbursed = asyncHandler(async (req, res) => {
             .skip(skip)
             .limit(limit)
             .populate({
-                path: "application",
-                populate: {
-                    path: "lead",
-                },
+                path: "sanction",
+                populate: [
+                    { path: "approvedBy" },
+                    {
+                        path: "application",
+                        populate: [
+                            { path: "lead", populate: { path: "documents" } }, // Nested populate for lead and documents
+                            { path: "recommendedBy" },
+                        ],
+                    },
+                ],
             })
             .populate("disbursedBy");
 

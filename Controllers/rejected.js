@@ -1,4 +1,5 @@
 import asyncHandler from "../middleware/asyncHandler.js";
+import Closed from "../models/Closed.js";
 import Lead from "../models/Leads.js";
 import Application from "../models/Applications.js";
 import Employee from "../models/Employees.js";
@@ -65,7 +66,7 @@ export const rejected = asyncHandler(async (req, res) => {
             { isRejected: true, rejectedBy: req.employee._id },
             { new: true }
         )
-            .populate("lead")
+            .populate({ path: "lead", populate: { path: "documents" } })
             .populate({ path: "rejectedBy", select: "fName mName lName" });
 
         if (!application) {
@@ -89,7 +90,10 @@ export const rejected = asyncHandler(async (req, res) => {
             { new: true }
         ).populate([
             { path: "rejectedBy", select: "fName mName lName" },
-            { path: "application", populate: { path: "lead" } }
+            {
+                path: "application",
+                populate: { path: "lead", populate: { path: "documents" } },
+            },
         ]);
 
         if (!sanction) {
@@ -121,12 +125,42 @@ export const rejected = asyncHandler(async (req, res) => {
             { path: "rejectedBy", select: "fName mName lName" },
             {
                 path: "sanction",
-                populate: { path: "application", populate: { path: "lead" } },
-            }
+                populate: {
+                    path: "application",
+                    populate: { path: "lead", populate: { path: "documents" } },
+                },
+            },
         ]);
         if (!disbursal) {
             throw new Error("Disbursal not found!!");
         }
+
+        // const activeRecord = await Closed.updateOne(
+        //     { "data.loanNo": disbursal.loanNo }, // Find the document where the data array contains an object with the matching loanNo
+        //     {
+        //         $set: {
+        //             "data.$.isActive": false, // Update the isActive field of the matched object
+        //         },
+        //     }
+        // );
+
+        // if (!activeRecord) {
+        //     res.status(500);
+        //     throw new Error(`${disbursal.loanNo} couldn't be closed!!`);
+        // }
+
+        const closedDoc = await Closed.findOne({
+            "data.loanNo": disbursal.loanNo,
+        });
+        if (closedDoc) {
+            closedDoc.data = closedDoc.data.map((item) =>
+                item.loanNo === disbursal.loanNo
+                    ? { ...item, isActive: false, isClosed: true }
+                    : item
+            );
+            await closedDoc.save();
+        }
+
         logs = await postLogs(
             disbursal.sanction.application.lead._id,
             "DISBURSAL REJECTED",
@@ -217,7 +251,7 @@ export const getRejected = asyncHandler(async (req, res) => {
         .limit(limit)
         .populate([
             { path: "rejectedBy", select: "fName mName lName" },
-            { path: "application", populate: { path: "lead" } }
+            { path: "application", populate: { path: "lead" } },
         ]);
 
     const totalSanctions = sanctions.length;
@@ -234,7 +268,7 @@ export const getRejected = asyncHandler(async (req, res) => {
                     path: "application",
                     populate: { path: "lead" },
                 },
-            }
+            },
         ]);
 
     const totalDisbursals = disbursals.length;

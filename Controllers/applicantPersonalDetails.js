@@ -46,8 +46,6 @@ export const applicantDetails = async (details = null) => {
             },
         };
 
-        console.log(updateData);
-
         // Find the applicant by criteria and update if found, or create a new one
         const applicant = await Applicant.findOneAndUpdate(filter, updateData, {
             upsert: true,
@@ -83,10 +81,7 @@ export const bankVerification = asyncHandler(async (req, res) => {
     const response = await verifyBank(
         beneficiaryName,
         bankAccNo,
-        accountType,
         ifscCode,
-        bankName,
-        branchName,
         applicant
     );
 
@@ -94,7 +89,24 @@ export const bankVerification = asyncHandler(async (req, res) => {
         res.status(400);
         throw new Error(response.message);
     }
-    res.json({ success: response.success, message: response.message });
+
+    const newBank = await Bank.create({
+        borrowerId: id,
+        beneficiaryName,
+        bankName,
+        bankAccNo,
+        accountType,
+        ifscCode,
+        branchName,
+    });
+
+    if (newBank) {
+        return res.json({
+            success: true,
+            message: "Bank verified and saved.",
+        });
+    }
+    res.json({ success: false, message: "Bank couldn't be verified!!" });
 });
 
 // @desc Update applicant details
@@ -105,7 +117,10 @@ export const updateApplicantDetails = asyncHandler(async (req, res) => {
     const updates = req.body;
 
     // Check if the application is present
-    const application = await Application.findOne({ _id: id }).populate("lead");
+    const application = await Application.findOne({ _id: id }).populate({
+        path: "lead",
+        populate: { path: "documents" },
+    });
 
     // Check if credit Manager matches the one in the application document
     if (
@@ -237,6 +252,18 @@ export const updateApplicantBankDetails = asyncHandler(async (req, res) => {
         throw new Error("No applicant found!!!");
     }
 
+    const verify = await verifyBank(
+        beneficiaryName,
+        bankAccNo,
+        ifscCode,
+        applicant
+    );
+
+    if (!verify.success) {
+        res.status(400);
+        throw new Error(response.message);
+    }
+
     // Check if there's already existing bank details for this applicant
     let bankDetails = await Bank.findOne({ borrowerId: id });
 
@@ -251,7 +278,7 @@ export const updateApplicantBankDetails = asyncHandler(async (req, res) => {
         bankDetails.branchName = branchName || bankDetails.branchName;
 
         await bankDetails.save();
-        return res.json({ bankDetails });
+        return res.json({ success: true });
     }
 
     res.status(400);

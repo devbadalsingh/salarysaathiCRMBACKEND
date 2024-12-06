@@ -1,6 +1,7 @@
 import asyncHandler from "../middleware/asyncHandler.js";
 import Lead from "../models/Leads.js";
 import Application from "../models/Applications.js";
+import Documents from "../models/Documents.js";
 import Employee from "../models/Employees.js";
 import { postLogs } from "./logs.js";
 import { applicantDetails } from "./applicantPersonalDetails.js";
@@ -35,18 +36,27 @@ export const createLead = asyncHandler(async (req, res) => {
         source,
     } = req.body;
 
+    const name = fName.split(" ");
+
+    let docs;
+    const exisitingDoc = await Documents.findOne({ pan: pan });
+    if (exisitingDoc) {
+        docs = exisitingDoc;
+    } else {
+        docs = await Documents.create({
+            pan: pan,
+        });
+    }
+
     const newLead = await Lead.create({
-        fName,
-        mName: mName
-            ? mName
-            : fName && fName.split(" ").length === 2
-            ? fName.split(" ")[1]
-            : "",
+        fName: name[0],
+        mName: mName ? mName : name.length === 2 ? name[1] : "",
         lName: lName ?? "",
         gender,
         dob: new Date(dob),
         aadhaar,
         pan,
+        documents: docs._id.toString(),
         mobile: String(mobile),
         alternateMobile: alternateMobile ? String(alternateMobile) : "",
         personalEmail,
@@ -103,7 +113,8 @@ export const getAllLeads = asyncHandler(async (req, res) => {
 // @access Private
 export const getLead = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const lead = await Lead.findOne({ _id: id });
+    const lead = await Lead.findOne({ _id: id }).populate("documents");
+
     if (!lead) {
         res.status(404);
         throw new Error("Lead not found!!!!");
@@ -178,6 +189,7 @@ export const allocatedLeads = asyncHandler(async (req, res) => {
         .skip(skip)
         .limit(limit)
         .populate("screenerId")
+        .populate("documents")
         .sort({ updatedAt: -1 });
 
     const totalLeads = await Lead.countDocuments(query);
@@ -247,10 +259,12 @@ export const recommendLead = asyncHandler(async (req, res) => {
     const { id } = req.params;
     if (req.activeRole === "screener") {
         // Find the lead by its ID
-        const lead = await Lead.findById(id).populate({
-            path: "screenerId",
-            select: "fName mName lName",
-        });
+        const lead = await Lead.findById(id)
+            .populate({
+                path: "screenerId",
+                select: "fName mName lName",
+            })
+            .populate("documents");
 
         if (!lead) {
             throw new Error("Lead not found"); // This error will be caught by the error handler
@@ -433,13 +447,14 @@ export const fetchCibil = asyncHandler(async (req, res) => {
     }
 
     if (!lead.cibilScore) {
-        // const response = await equifax(lead);
+        const response = await equifax(lead);
         // await cibilPdf(lead);
         // console.log(pdfResult);
 
-        const value = "720";
-        // const value = response?.CCRResponse?.CIRReportDataLst[0]?.CIRReportData
-        //     ?.ScoreDetails[0]?.Value || "720";
+        // const value = "720";
+        const value =
+            response?.CCRResponse?.CIRReportDataLst[0]?.CIRReportData
+                ?.ScoreDetails[0]?.Value;
 
         if (!value) {
             return res.status(400).json({
@@ -453,4 +468,27 @@ export const fetchCibil = asyncHandler(async (req, res) => {
         return res.json({ success: true, value: value });
     }
     return res.json({ success: true, value: lead.cibilScore });
+});
+
+// @desc Fetch CIBIL Report
+// @route GET /api/verify/equifax-report/:id
+// @access Private
+export const cibilReport = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const lead = await Lead.findById(id);
+
+    if (!lead) {
+        res.status(404);
+        throw new Error("Lead not found!!!");
+    }
+
+    if (lead.screenerId.toString() !== req.employee._id.toString()) {
+        res.status(404);
+        throw new Error(
+            "You are not authorized to fetch CIBIL for this lead!!!"
+        );
+    }
+
+    const report = await cibilPdf(lead);
+    return res.json({ report });
 });

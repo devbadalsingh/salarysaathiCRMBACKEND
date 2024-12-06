@@ -51,6 +51,10 @@ const sanctionSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        loanNo: {
+            type: String,
+            unique: true,
+        },
     },
     { timestamps: true }
 );
