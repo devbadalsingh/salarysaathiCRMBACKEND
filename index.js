@@ -28,11 +28,13 @@ app.use(cookieParser()); //cookie parser middlerware
 // CORS configuration
 var corsOption = {
     origin: [
+        "https://crm.salarysaathi.com",
         "http://localhost:5173",
-        "https://fintechbasket.com",
-        "http://www.fintechbasket.com",
-        "https://speedoloan.com",
-        "https://143.110.182.3",
+        "https://salarysaathi.com",
+        "https://www.salarysaathi.com",
+        "https://crm.salarysaathi.com",
+        "https://www.crm.salarysaathi.com",
+        "https://api.salarysaathi.com"
     ],
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     credentials: true,
