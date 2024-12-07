@@ -9,7 +9,6 @@ import { uploadDocs, getDocs } from "../utils/docsUploadAndFetch.js";
 // @route PATCH /api/leads/docs/:id or /api/applications/docs/:id
 // @access Private
 export const addDocs = asyncHandler(async (req, res) => {
-    console.log("testing");
     const { id } = req.params;
     let employeeId;
 
@@ -25,8 +24,6 @@ export const addDocs = asyncHandler(async (req, res) => {
     if (req.activeRole === "screener" || req.activeRole === "creditManager") {
         employeeId = req.employee._id.toString();
     }
-
-    console.log(req.files);
 
     if (!req.files) {
         res.status(400);
@@ -98,15 +95,12 @@ export const getDocuments = asyncHandler(async (req, res) => {
     const docId = req.query.docId;
 
     let lead = await Lead.findById(id);
-    console.log(lead);
 
     if (!lead) {
         res.status(404);
         throw new Error("Lead not found!!!");
     }
     const docs = await Documents.findOne({ pan: lead.pan });
-    console.log(docs);
-
     const result = await getDocs(docs, docType, docId);
 
     // Return the pre-signed URL for this specific document

@@ -132,8 +132,6 @@ export const uploadDocs = async (docs, files, remarks, options = {}) => {
 
     // Add multiple document updates to the lead document
     for (const [field, document] of Object.entries(multipleDocUpdates)) {
-        console.log(`field: ${field} and docs: ${document}`);
-        
         if (document.length > 0) {
             docs.document.multipleDocuments[field].push(...document);
         }
