@@ -8,7 +8,7 @@ export function dateFormatter(incommingDate) {
 }
 
 export function dateStripper(incommingDate) {
-    let date = new Date(incommingDate);
+    let date = new Date(incommingDate).toISOString();
     date.setUTCHours(0, 0, 0, 0);
 
     return date;
