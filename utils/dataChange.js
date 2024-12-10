@@ -923,10 +923,10 @@ const sendApprovedSacntionToDisbursal = async () => {
 
 // Main Function to Connect and Run
 async function main() {
-    await connectToDatabase();
+    // await connectToDatabase();
     // await migrateDocuments();
     // await updateLoanNumber();
-    await sendApprovedSacntionToDisbursal();
+    // await sendApprovedSacntionToDisbursal();
     // await sanctionActiveLeadsMigration();
     // await updateLeadsWithDocumentIds();
     // await matchPANFromExcel();
