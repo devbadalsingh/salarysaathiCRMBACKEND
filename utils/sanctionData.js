@@ -81,8 +81,10 @@ export const getSanctionData = async (id) => {
     // }
 
     // Stripping the time from the date to compare
-    const sanctionDate = new Date().toISOString();
-    const disbursalDate = camDetails?.details.disbursalDate;
+    const sanctionDate = dateStripper(new Date());
+    const disbursalDate = dateStripper(
+        new Date(camDetails?.details.disbursalDate)
+    );
 
     // Date validation
     if (
