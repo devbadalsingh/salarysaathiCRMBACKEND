@@ -12,7 +12,7 @@ export const createActiveLead = async (pan, loanNo) => {
         if (!existingActiveLead) {
             const newActiveLead = await Closed.create({
                 pan,
-                data: [{ loanNo: loanNo }],
+                data: [{ loanNo: loanNo, utr: undefined }],
             });
             if (!newActiveLead) {
                 return { success: false };
@@ -22,7 +22,7 @@ export const createActiveLead = async (pan, loanNo) => {
             existingActiveLead.data.some((entry) => entry.isActive === false)
         ) {
             // If disbursal ID is not found, add the new disbursal
-            existingActiveLead.data.push({ loanNo: loanNo });
+            existingActiveLead.data.push({ loanNo: loanNo, utr: undefined });
             const res = await existingActiveLead.save();
             if (!res) {
                 return { success: false };

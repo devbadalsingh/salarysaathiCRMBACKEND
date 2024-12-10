@@ -11,6 +11,7 @@ import Employee from "../models/Employees.js";
 import xlsx from "xlsx";
 import fs from "fs";
 import Bank from "../models/ApplicantBankDetails.js";
+import { createActiveLead } from "../Controllers/collection.js";
 
 const mongoURI = process.env.MONGO_URI;
 
@@ -827,11 +828,105 @@ export const exportApprovedSanctions = async () => {
     }
 };
 
+// Function to send approved sanctions to disbursal
+const sendApprovedSacntionToDisbursal = async () => {
+    try {
+        const ids = [
+            "6753efb7779de0fd099382ea",
+            "6753e92f779de0fd099379f0",
+            "6753e560779de0fd09937552",
+            "675432a365fd5b245d9a0b50",
+            "6754350b65fd5b245d9a0d2d",
+        ];
+
+        for (const id of ids) {
+            const lastSanctioned = await mongoose.model("Sanction").aggregate([
+                {
+                    $match: { loanNo: { $exists: true, $ne: null } },
+                },
+                {
+                    $project: {
+                        numericLoanNo: {
+                            $toInt: { $substr: ["$loanNo", 6, -1] }, // Extract numeric part
+                        },
+                    },
+                },
+                {
+                    $sort: { numericLoanNo: -1 }, // Sort in descending order
+                },
+                { $limit: 1 }, // Get the highest number
+            ]);
+
+            const lastSequence =
+                lastSanctioned.length > 0 ? lastSanctioned[0].numericLoanNo : 0;
+            const newSequence = lastSequence + 1;
+
+            const nextLoanNo = `NMFSPE${String(newSequence).padStart(11, 0)}`;
+            const sanctionDate = new Date(2024, 11, 6);
+
+            const sanction = await Sanction.findByIdAndUpdate(
+                { _id: id },
+                {
+                    $set: {
+                        isApproved: true,
+                        approvedBy: "6752bf8a19172f87bc166480",
+                        loanNo: nextLoanNo,
+                        sanctionDate: sanctionDate.toISOString(),
+                    },
+                },
+                { new: true }
+            ).populate({ path: "application", populate: { path: "lead" } });
+
+            if (!sanction) {
+                console.log("Updation failed!!");
+            }
+
+            const active = await createActiveLead(
+                sanction?.application?.lead?.pan,
+                sanction.loanNo
+            );
+
+            if (!active) {
+                console.log("Failed to create an active lead!!");
+            }
+
+            const disbursal = await Disbursal.create({
+                sanction: sanction._id,
+                loanNo: sanction.loanNo,
+            });
+            console.log(disbursal);
+
+            if (!disbursal) {
+                console.log("Saving failed!!");
+            }
+            // Update the active record to include disbursal details
+            const updatedActive = await Closed.findOne({
+                pan: sanction?.application?.lead?.pan,
+                "data.loanNo": sanction?.loanNo,
+            });
+
+            if (updatedActive) {
+                updatedActive.data.forEach((item) => {
+                    if (item.loanNo === sanction?.loanNo) {
+                        item.disbursal = disbursal._id.toString(); // Update the disbursal ID in the matched data array
+                    }
+                });
+
+                await updatedActive.save();
+            }
+        }
+        console.log("Disbursal Saved successfully");
+    } catch (error) {
+        console.log(`Some error occured: ${error}`);
+    }
+};
+
 // Main Function to Connect and Run
 async function main() {
-    // await connectToDatabase();
+    await connectToDatabase();
     // await migrateDocuments();
     // await updateLoanNumber();
+    await sendApprovedSacntionToDisbursal();
     // await sanctionActiveLeadsMigration();
     // await updateLeadsWithDocumentIds();
     // await matchPANFromExcel();

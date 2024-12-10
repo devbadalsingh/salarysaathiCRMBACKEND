@@ -13,7 +13,7 @@ const sanctionSchema = new mongoose.Schema(
             ref: "Employee",
         },
         sanctionDate: {
-            type: String,
+            type: Date,
         },
         eSigned: {
             type: Boolean,
