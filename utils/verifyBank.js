@@ -47,6 +47,7 @@ export const verifyBank = async (
                     },
                 }
             );
+            console.log(response.data);
 
             if (response.data.model.status === "SUCCESS") {
                 return { success: true };
