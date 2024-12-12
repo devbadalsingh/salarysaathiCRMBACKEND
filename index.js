@@ -7,6 +7,7 @@ import morgan from "morgan";
 import accountRouter from "./routes/AccountRouter.js";
 import applicantRouter from "./routes/ApplicantRouter.js";
 import applicationRouter from "./routes/ApplicationRouter.js";
+import appRouter from "./routes/AppRouter.js";
 import collectionRouter from "./routes/CollectionRouter.js";
 import leadRouter from "./routes/LeadsRouter.js"; // Import routes
 import employeeRouter from "./routes/EmployeesRouter.js";
@@ -34,7 +35,7 @@ var corsOption = {
         "https://www.salarysaathi.com",
         "https://crm.salarysaathi.com",
         "https://www.crm.salarysaathi.com",
-        "https://api.salarysaathi.com"
+        "https://api.salarysaathi.com",
     ],
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     credentials: true,
@@ -51,6 +52,7 @@ app.get("/", (req, res) => {
     res.send("API is running.......");
 });
 
+app.use("/api/mobile", appRouter); // Use the mobile routes
 app.use("/api/accounts", accountRouter); // Use the account routes
 app.use("/api/applications", applicationRouter); // Use the application routes
 app.use("/api/applicant", applicantRouter); // Use the applicant's routes
