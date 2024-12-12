@@ -119,6 +119,7 @@ export const getPanDetails = asyncHandler(async (req, res) => {
 
     // Call the get panDetails Function
     const response = await panVerify("12345678", pan);
+    console.log(response.result);
 
     if (response.result_code !== 101) {
         res.status(400);
@@ -127,7 +128,7 @@ export const getPanDetails = asyncHandler(async (req, res) => {
 
     if (
         name.toLowerCase() !==
-        response.result.data.fullname.trim().toLowerCase()
+        response?.result?.data?.fullname?.trim().toLowerCase()
     ) {
         return res.json({
             nameMatched: false,
